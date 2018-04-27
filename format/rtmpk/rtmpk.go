@@ -1,4 +1,4 @@
-package rtmp
+package rtmpk
 
 import (
 	"bufio"
@@ -12,12 +12,13 @@ import (
 	"github.com/LiveStudioSolution/joy4/av/avutil"
 	"github.com/LiveStudioSolution/joy4/format/flv"
 	"github.com/LiveStudioSolution/joy4/format/flv/flvio"
+	"github.com/LiveStudioSolution/kcp-go"
 	"io"
 	"net"
 	"net/url"
 	"strings"
 	"time"
-	"encoding/hex"
+	"github.com/pkg/errors"
 )
 
 var Debug bool
@@ -27,7 +28,7 @@ func ParseURL(uri string) (u *url.URL, err error) {
 		return
 	}
 	if _, _, serr := net.SplitHostPort(u.Host); serr != nil {
-		u.Host += ":1935"
+		u.Host += ":1937"
 	}
 	return
 }
@@ -42,13 +43,25 @@ func DialTimeout(uri string, timeout time.Duration) (conn *Conn, err error) {
 		return
 	}
 
-	dailer := net.Dialer{Timeout: timeout}
-	var netconn net.Conn
+	//dailer := net.Dialer{Timeout: timeout}
+	//var netconn net.Conn
+	/*
 	if netconn, err = dailer.Dial("tcp", u.Host); err != nil {
 		return
 	}
+	*/
+	kcpconn, err := kcp.DialWithOptions(u.Host, nil, 0, 0)
+	if err != nil {
+		return nil, errors.Wrap(err, "createConn()")
+	}
+	kcpconn.SetStreamMode(false)
+	kcpconn.SetWriteDelay(false)
+	kcpconn.SetNoDelay(1, 50, 0, 0)
+	kcpconn.SetWindowSize(128, 512)
+	kcpconn.SetMtu(1200)
+	kcpconn.SetACKNoDelay(true)
 
-	conn = NewConn(netconn)
+	conn = NewConn(kcpconn)
 	conn.URL = u
 	return
 }
@@ -85,18 +98,21 @@ func (self *Server) handleConn(conn *Conn) (err error) {
 func (self *Server) ListenAndServe() (err error) {
 	addr := self.Addr
 	if addr == "" {
-		addr = ":1935"
+		addr = ":1936"
 	}
-	var tcpaddr *net.TCPAddr
-	if tcpaddr, err = net.ResolveTCPAddr("tcp", addr); err != nil {
-		err = fmt.Errorf("rtmp: ListenAndServe: %s", err)
-		return
-	}
+	//var tcpaddr *net.TCPAddr
+	//if tcpaddr, err = net.ResolveTCPAddr("tcp", addr); err != nil {
+	//	err = fmt.Errorf("rtmp: ListenAndServe: %s", err)
+	//	return
+	//}
 
+	/*
 	var listener *net.TCPListener
 	if listener, err = net.ListenTCP("tcp", tcpaddr); err != nil {
 		return
 	}
+	*/
+	listener, err := kcp.ListenWithOptions(addr, nil, 0, 0)
 
 	if Debug {
 		fmt.Println("rtmp: server: listening on", addr)
@@ -1295,10 +1311,10 @@ func (self *Conn) readChunk() (err error) {
 	}
 
 	if cs.msgdataleft == 0 {
-		if Debug {
-			fmt.Println("rtmp: chunk data")
-			fmt.Print(hex.Dump(cs.msgdata))
-		}
+		//if Debug {
+		//	fmt.Println("rtmp: chunk data")
+		//	fmt.Print(hex.Dump(cs.msgdata))
+		//}
 
 		if err = self.handleMsg(cs.timenow, cs.msgsid, cs.msgtypeid, cs.msgdata); err != nil {
 			return

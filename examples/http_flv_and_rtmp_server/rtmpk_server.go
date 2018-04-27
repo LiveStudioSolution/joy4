@@ -7,28 +7,30 @@ import (
 	"github.com/LiveStudioSolution/joy4/format"
 	"github.com/LiveStudioSolution/joy4/av/avutil"
 	"github.com/LiveStudioSolution/joy4/av/pubsub"
-	"github.com/LiveStudioSolution/joy4/format/rtmp"
-	//rtmp "github.com/LiveStudioSolution/joy4/format/rtmpk"
+	//"github.com/LiveStudioSolution/joy4/format/rtmp"
+	rtmp "github.com/LiveStudioSolution/joy4/format/rtmpk"
 	"github.com/LiveStudioSolution/joy4/format/flv"
+	"fmt"
 )
 
 func init() {
 	format.RegisterAll()
 }
 
-type writeFlusher struct {
+type writeFlusherk struct {
 	httpflusher http.Flusher
 	io.Writer
 }
 
-func (self writeFlusher) Flush() error {
+func (self writeFlusherk) Flush() error {
 	self.httpflusher.Flush()
 	return nil
 }
 
 func main() {
 	server := &rtmp.Server{}
-	server.Addr = "0.0.0.0:1935"
+	server.Addr = "0.0.0.0:1936"
+	rtmp.Debug = true
 
 	l := &sync.RWMutex{}
 	type Channel struct {
@@ -42,6 +44,7 @@ func main() {
 		l.RUnlock()
 
 		if ch != nil {
+			fmt.Printf("HandlePublish rtmpk.Conn %+v", conn)
 			cursor := ch.que.Latest()
 			avutil.CopyFile(conn, cursor)
 		}
@@ -64,7 +67,7 @@ func main() {
 		if ch == nil {
 			return
 		}
-
+		fmt.Printf("HandlePublish rtmpk.Conn %+v", conn)
 		avutil.CopyPackets(ch.que, conn)
 
 		l.Lock()
@@ -86,7 +89,7 @@ func main() {
 			flusher := w.(http.Flusher)
 			flusher.Flush()
 
-			muxer := flv.NewMuxerWriteFlusher(writeFlusher{httpflusher: flusher, Writer: w})
+			muxer := flv.NewMuxerWriteFlusher(writeFlusherk{httpflusher: flusher, Writer: w})
 			cursor := ch.que.Latest()
 
 			avutil.CopyFile(muxer, cursor)

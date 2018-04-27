@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/nareix/joy4/av"
-	"github.com/nareix/joy4/av/transcode"
-	"github.com/nareix/joy4/format"
-	"github.com/nareix/joy4/av/avutil"
-	"github.com/nareix/joy4/format/rtmp"
-	"github.com/nareix/joy4/cgo/ffmpeg"
+	"github.com/LiveStudioSolution/joy4/av"
+	"github.com/LiveStudioSolution/joy4/av/transcode"
+	"github.com/LiveStudioSolution/joy4/format"
+	"github.com/LiveStudioSolution/joy4/av/avutil"
+	"github.com/LiveStudioSolution/joy4/format/rtmp"
+	"github.com/LiveStudioSolution/joy4/cgo/ffmpeg"
 )
 
 // need ffmpeg with libspeex and libfdkaac installed

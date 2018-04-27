@@ -4,7 +4,8 @@ import (
 	"github.com/LiveStudioSolution/joy4/av/pktque"
 	"github.com/LiveStudioSolution/joy4/format"
 	"github.com/LiveStudioSolution/joy4/av/avutil"
-	"github.com/LiveStudioSolution/joy4/format/rtmp"
+	//"github.com/LiveStudioSolution/joy4/format/rtmp"
+	rtmp "github.com/LiveStudioSolution/joy4/format/rtmpk"
 )
 
 func init() {
@@ -16,7 +17,7 @@ func init() {
 func main() {
 	file, _ := avutil.Open("/Users/flonly/Music/mp4samples/long.flv")
 	//file, _ := avutil.Open("projectindex.flv")
-	conn, _ := rtmp.Dial("rtmp://localhost:1935/live/lzh1155")
+	conn, _ := rtmp.Dial("rtmp://localhost:1936/live/lzh1155")
 	// conn, _ := avutil.Create("rtmp://localhost:1936/app/publish")
 
 	demuxer := &pktque.FilterDemuxer{Demuxer: file, Filter: &pktque.Walltime{}}
