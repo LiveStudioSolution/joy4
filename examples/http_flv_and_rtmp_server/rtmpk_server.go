@@ -7,10 +7,10 @@ import (
 	"github.com/LiveStudioSolution/joy4/format"
 	"github.com/LiveStudioSolution/joy4/av/avutil"
 	"github.com/LiveStudioSolution/joy4/av/pubsub"
-	//"github.com/LiveStudioSolution/joy4/format/rtmp"
-	rtmp "github.com/LiveStudioSolution/joy4/format/rtmpk"
-	"github.com/LiveStudioSolution/joy4/format/flv"
+	"github.com/LiveStudioSolution/joy4/format/rtmp"
+	"github.com/LiveStudioSolution/joy4/format/rtmpk"
 	"fmt"
+	"flag"
 )
 
 func init() {
@@ -28,9 +28,24 @@ func (self writeFlusherk) Flush() error {
 }
 
 func main() {
-	server := &rtmp.Server{}
-	server.Addr = "0.0.0.0:1936"
-	rtmp.Debug = true
+	protocol := flag.String("protocol", "rtmpk", "rtmp or rtmpk")
+	addr := flag.String("addr", ":1936", " server bind address, default :1936")
+	flag.Parse()
+	switch *protocol {
+	case "rtmp":
+		runRtmpServer(*addr)
+	case "rtmpk":
+		runRtmpKServer(*addr)
+	default:
+		fmt.Errorf("unkonown protocol %s", protocol)
+	}
+}
+
+func runRtmpKServer(addr string) {
+	server := &rtmpk.Server{}
+	//server.Addr = "0.0.0.0:1936"
+	server.Addr = addr
+	rtmpk.Debug = true
 
 	l := &sync.RWMutex{}
 	type Channel struct {
@@ -38,7 +53,7 @@ func main() {
 	}
 	channels := map[string]*Channel{}
 
-	server.HandlePlay = func(conn *rtmp.Conn) {
+	server.HandlePlay = func(conn *rtmpk.Conn) {
 		l.RLock()
 		ch := channels[conn.URL.Path]
 		l.RUnlock()
@@ -50,7 +65,7 @@ func main() {
 		}
 	}
 
-	server.HandlePublish = func(conn *rtmp.Conn) {
+	server.HandlePublish = func(conn *rtmpk.Conn) {
 		streams, _ := conn.Streams()
 
 		l.Lock()
@@ -76,34 +91,62 @@ func main() {
 		ch.que.Close()
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	server.ListenAndServe()
+
+	// ffmpeg -re -i movie.flv -c copy -f flv rtmpk://localhost/movie
+}
+
+func runRtmpServer(addr string) {
+	server := &rtmp.Server{}
+	//server.Addr = "0.0.0.0:1936"
+	server.Addr = addr
+	rtmp.Debug = true
+
+	l := &sync.RWMutex{}
+	type Channel struct {
+		que *pubsub.Queue
+	}
+	channels := map[string]*Channel{}
+
+	server.HandlePlay = func(conn *rtmp.Conn) {
 		l.RLock()
-		ch := channels[r.URL.Path]
+		ch := channels[conn.URL.Path]
 		l.RUnlock()
 
 		if ch != nil {
-			w.Header().Set("Content-Type", "video/x-flv")
-			w.Header().Set("Transfer-Encoding", "chunked")		
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.WriteHeader(200)
-			flusher := w.(http.Flusher)
-			flusher.Flush()
-
-			muxer := flv.NewMuxerWriteFlusher(writeFlusherk{httpflusher: flusher, Writer: w})
+			fmt.Printf("HandlePublish rtmp.Conn %+v", conn)
 			cursor := ch.que.Latest()
-
-			avutil.CopyFile(muxer, cursor)
-		} else {
-			http.NotFound(w, r)
+			avutil.CopyFile(conn, cursor)
 		}
-	})
+	}
 
-	go http.ListenAndServe(":8089", nil)
+	server.HandlePublish = func(conn *rtmp.Conn) {
+		streams, _ := conn.Streams()
+
+		l.Lock()
+		ch := channels[conn.URL.Path]
+		if ch == nil {
+			ch = &Channel{}
+			ch.que = pubsub.NewQueue()
+			ch.que.WriteHeader(streams)
+			channels[conn.URL.Path] = ch
+		} else {
+			ch = nil
+		}
+		l.Unlock()
+		if ch == nil {
+			return
+		}
+		fmt.Printf("HandlePublish rtmp.Conn %+v", conn)
+		avutil.CopyPackets(ch.que, conn)
+
+		l.Lock()
+		delete(channels, conn.URL.Path)
+		l.Unlock()
+		ch.que.Close()
+	}
 
 	server.ListenAndServe()
 
 	// ffmpeg -re -i movie.flv -c copy -f flv rtmp://localhost/movie
-	// ffmpeg -f avfoundation -i "0:0" .... -f flv rtmp://localhost/screen
-	// ffplay http://localhost:8089/movie
-	// ffplay http://localhost:8089/screen
 }
