@@ -1308,6 +1308,10 @@ func (self *Conn) readChunk() (err error) {
 		if err = self.handleMsg(cs.timenow, cs.msgsid, cs.msgtypeid, cs.msgdata); err != nil {
 			return
 		}
+
+		if Debug {
+			fmt.Printf("rtmpk time info: unix_timestamp=%d, timestamp=%d\n", time.Now().UnixNano()/1000/1000, cs.timenow)
+		}
 	}
 
 	self.ackn += uint32(n)

@@ -12,6 +12,7 @@ import (
 	"github.com/LiveStudioSolution/joy4/codec/h264parser"
 	"github.com/LiveStudioSolution/joy4/format/flv/flvio"
 	"io"
+	"time"
 )
 
 var MaxProbePacketCount = 20
@@ -468,6 +469,7 @@ func (self *Demuxer) ReadPacket() (pkt av.Packet, err error) {
 
 		var ok bool
 		if pkt, ok = self.prober.TagToPacket(tag, timestamp); ok {
+			fmt.Printf("flv time info: unix_timestamp=%d, timestamp=%d\n", time.Now().UnixNano()/1000/1000, timestamp)
 			return
 		}
 	}
